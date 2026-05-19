@@ -29,6 +29,7 @@ algo_trading_lab/.venv/
 scraper_engine/.venv/
 adaptive_ai_layer/.venv/
 adaptive_ai_layer/model_artifacts/
+platform_gateway/.venv/
 
 .DS_Store
 Thumbs.db

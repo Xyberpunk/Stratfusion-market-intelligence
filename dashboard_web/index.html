@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>StratFusion Market Intelligence</title>
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body>
+    <header class="app-shell">
+      <div>
+        <p class="eyebrow">StratFusion</p>
+        <h1>Market Intelligence Console</h1>
+      </div>
+      <div class="connection">
+        <label for="gatewayUrl">Gateway</label>
+        <input id="gatewayUrl" type="url" value="http://127.0.0.1:8070">
+        <button id="checkStatus" type="button">Check</button>
+      </div>
+    </header>
+
+    <main class="layout">
+      <aside class="sidebar">
+        <nav class="tabs" aria-label="Dashboard sections">
+          <button class="tab active" data-section="news">Web & News Market Intelligence</button>
+          <button class="tab" data-section="algo">AI Algo Trading Lab</button>
+        </nav>
+        <section class="control-panel">
+          <h2>Run Context</h2>
+          <label for="symbol">Symbol</label>
+          <input id="symbol" value="INFY">
+          <label for="capital">Capital</label>
+          <input id="capital" type="number" value="1000000">
+          <label for="risk">Risk per trade</label>
+          <input id="risk" type="number" step="0.001" value="0.01">
+          <label for="headline">Latest headline</label>
+          <textarea id="headline" rows="4">Infosys raises guidance after strong revenue growth and resilient deal wins</textarea>
+          <button id="runPipeline" type="button" class="primary">Run Intelligence Pipeline</button>
+        </section>
+      </aside>
+
+      <section class="workspace">
+        <section id="statusBand" class="status-band">
+          <div><span>Gateway</span><strong id="gatewayStatus">unchecked</strong></div>
+          <div><span>Adaptive AI</span><strong id="adaptiveStatus">unchecked</strong></div>
+          <div><span>Algo Lab</span><strong id="algoStatus">unchecked</strong></div>
+          <div><span>News Store</span><strong id="newsStatus">unchecked</strong></div>
+        </section>
+
+        <section class="market-visual">
+          <canvas id="marketCanvas" width="1200" height="320" aria-label="Market trend visualization"></canvas>
+        </section>
+
+        <section id="newsSection" class="section active">
+          <div class="section-head">
+            <div>
+              <p class="eyebrow">Section 1</p>
+              <h2>Web & News Market Intelligence</h2>
+            </div>
+            <button id="loadNews" type="button">Refresh News</button>
+          </div>
+          <div class="metric-grid">
+            <div class="metric"><span>Sentiment</span><strong id="sentimentMetric">Waiting</strong></div>
+            <div class="metric"><span>Regime</span><strong id="regimeMetric">Waiting</strong></div>
+            <div class="metric"><span>Anomalies</span><strong id="anomalyMetric">0</strong></div>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr><th>Source</th><th>Headline</th><th>Time</th><th>Sentiment</th></tr>
+              </thead>
+              <tbody id="newsTable"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section id="algoSection" class="section">
+          <div class="section-head">
+            <div>
+              <p class="eyebrow">Section 2</p>
+              <h2>AI Algo Trading Lab</h2>
+            </div>
+            <button id="loadStrategies" type="button">Load Strategies</button>
+          </div>
+          <div class="metric-grid">
+            <div class="metric"><span>Bullish</span><strong id="bullishMetric">--</strong></div>
+            <div class="metric"><span>Bearish</span><strong id="bearishMetric">--</strong></div>
+            <div class="metric"><span>Final Action</span><strong id="actionMetric">--</strong></div>
+            <div class="metric"><span>Risk</span><strong id="riskMetric">--</strong></div>
+          </div>
+          <div class="split">
+            <section>
+              <h3>Strategy Weights</h3>
+              <div id="weightsList" class="weights"></div>
+            </section>
+            <section>
+              <h3>Risk Guidance</h3>
+              <dl class="risk-list">
+                <div><dt>Entry</dt><dd id="entryPrice">--</dd></div>
+                <div><dt>Stop</dt><dd id="stopLoss">--</dd></div>
+                <div><dt>Target</dt><dd id="targetPrice">--</dd></div>
+                <div><dt>R/R</dt><dd id="riskReward">--</dd></div>
+              </dl>
+            </section>
+          </div>
+          <section>
+            <h3>Explanation</h3>
+            <p id="explanation" class="explanation">Run the pipeline to generate probability-based market intelligence.</p>
+          </section>
+          <section>
+            <h3>Strategy Breakdown</h3>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr><th>Strategy</th><th>Signal</th><th>Weight</th><th>Confidence</th><th>Reason</th></tr>
+                </thead>
+                <tbody id="strategyTable"></tbody>
+              </table>
+            </div>
+          </section>
+        </section>
+      </section>
+    </main>
+
+    <script src="app.js"></script>
+  </body>
+</html>

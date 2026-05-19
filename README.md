@@ -1,6 +1,6 @@
 # StratFusion Market Intelligence
 
-StratFusion is an adaptive Indian market-intelligence platform with three production-oriented modules:
+StratFusion is an adaptive Indian market-intelligence platform with five production-oriented modules:
 
 1. **Web & News Market Intelligence**
    Real-time ethical news ingestion, duplicate suppression, semantic event detection, MySQL storage, embeddings, and ChromaDB vector search.
@@ -10,6 +10,12 @@ StratFusion is an adaptive Indian market-intelligence platform with three produc
 
 3. **Adaptive AI/ML Intelligence Layer**
    Advanced feature engineering, FinBERT sentiment, regime intelligence, anomaly detection, dynamic strategy-weight learning, market memory, training pipelines, and safe adaptive-learning foundations.
+
+4. **Platform Gateway**
+   Unified orchestration API that connects scraper news storage, Adaptive AI outputs, and Algo Trading Lab guidance into one dashboard-ready pipeline.
+
+5. **Dashboard Web**
+   Static operating console for Web & News Market Intelligence and the AI Algo Trading Lab.
 
 The platform is intentionally not a simple AI stock predictor. AI is one intelligence layer inside a broader system of market data, news intelligence, algorithms, regime detection, and risk management.
 
@@ -72,6 +78,40 @@ Read the full module guide:
 
 [adaptive_ai_layer/README.md](adaptive_ai_layer/README.md)
 
+### `platform_gateway/`
+
+Connection layer for the full platform.
+
+Key features:
+
+- Health checks across gateway, Adaptive AI, Algo Lab, and scraper news storage
+- Latest stored scraper news endpoint
+- Unified `/pipeline/run` endpoint
+- FinBERT sentiment -> regime -> anomaly -> weighting -> strategy/risk guidance orchestration
+- CORS enabled for the dashboard
+
+Read the full module guide:
+
+[platform_gateway/README.md](platform_gateway/README.md)
+
+### `dashboard_web/`
+
+Static dashboard UI for the platform.
+
+Key features:
+
+- Service status band
+- Web & News Market Intelligence section
+- AI Algo Trading Lab section
+- Symbol, capital, risk, and headline controls
+- Canvas market visualization
+- Pipeline execution from the browser
+- Strategy weights, risk guidance, probabilities, news, and explanations
+
+Read the full module guide:
+
+[dashboard_web/README.md](dashboard_web/README.md)
+
 ## Quick Start
 
 Clone the repo:
@@ -118,11 +158,32 @@ cp .env.example .env
 python main.py
 ```
 
+Run the Platform Gateway:
+
+```bash
+cd platform_gateway
+py -3.11 -m venv .venv
+source .venv/Scripts/activate
+python -m pip install --upgrade pip setuptools wheel
+python -m pip install -r requirements.txt
+cp .env.example .env
+python main.py
+```
+
+Run the dashboard:
+
+```bash
+cd dashboard_web
+python -m http.server 8060
+```
+
 API docs:
 
 ```text
 Algo Trading Lab: http://127.0.0.1:8080/docs
 Adaptive AI Layer: http://127.0.0.1:8090/docs
+Platform Gateway: http://127.0.0.1:8070/docs
+Dashboard: http://127.0.0.1:8060
 ```
 
 ## Safety Policy
@@ -178,6 +239,17 @@ Forbidden:
 │   ├── adaptive_learning/
 │   ├── api/
 │   └── tests/
+│
+├── platform_gateway/
+│   ├── api/
+│   ├── clients/
+│   ├── models/
+│   ├── storage/
+│   └── tests/
+│
+├── dashboard_web/
+│   ├── assets/
+│   └── samples/
 │
 └── README.md
 ```
