@@ -56,6 +56,11 @@ class Settings(BaseModel):
     request_delay_max_seconds: float = Field(default_factory=lambda: _env_float("REQUEST_DELAY_MAX_SECONDS", 4.0))
     robots_cache_ttl_seconds: int = Field(default_factory=lambda: _env_int("ROBOTS_CACHE_TTL_SECONDS", 3600))
     log_level: str = Field(default_factory=lambda: os.getenv("LOG_LEVEL", "INFO"))
+    enable_kafka: bool = Field(default_factory=lambda: _env_bool("ENABLE_KAFKA", False))
+    kafka_bootstrap_servers: str = Field(default_factory=lambda: os.getenv("KAFKA_BOOTSTRAP_SERVERS", "localhost:9092"))
+    kafka_client_id: str = Field(default_factory=lambda: os.getenv("KAFKA_CLIENT_ID", "scraper-engine"))
+    kafka_consumer_group: str = Field(default_factory=lambda: os.getenv("KAFKA_CONSUMER_GROUP", "scraper-engine"))
+    kafka_enable_auto_commit: bool = Field(default_factory=lambda: _env_bool("KAFKA_ENABLE_AUTO_COMMIT", False))
 
     @field_validator("scrape_interval_max")
     @classmethod

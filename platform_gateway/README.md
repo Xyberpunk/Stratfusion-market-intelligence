@@ -50,9 +50,21 @@ SCRAPER_MYSQL_ENABLED=true
 
 ```text
 GET  /platform/status
+GET  /health/deep
+GET  /metrics
+GET  /pipeline/status/{correlation_id}
 GET  /news/latest
 GET  /strategies
 POST /pipeline/run
+GET  /api/overview
+GET  /api/symbol/{symbol}/snapshot
+GET  /api/symbol/{symbol}/signal
+GET  /api/symbol/{symbol}/regime
+GET  /api/symbol/{symbol}/risk
+GET  /api/symbol/{symbol}/sentiment
+WS   /ws/signals
+WS   /ws/anomalies
+WS   /ws/market-status
 ```
 
 `POST /pipeline/run` executes:
@@ -67,3 +79,14 @@ FinBERT sentiment
 ```
 
 The response is dashboard-ready and keeps final wording probability-based.
+
+## Signal Lifecycle
+
+The gateway tracks each run with a `correlation_id` through:
+
+```text
+CREATED -> DATA_COLLECTED -> FEATURES_READY -> REGIME_READY
+-> STRATEGIES_READY -> ENSEMBLE_READY -> RISK_READY -> FINALIZED
+```
+
+Incomplete pipelines are not allowed to publish `final.signal.generated`.

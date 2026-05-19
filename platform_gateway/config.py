@@ -23,6 +23,11 @@ class Settings(BaseModel):
     adaptive_ai_url: str = Field(default_factory=lambda: os.getenv("ADAPTIVE_AI_URL", "http://127.0.0.1:8090"))
     algo_lab_url: str = Field(default_factory=lambda: os.getenv("ALGO_LAB_URL", "http://127.0.0.1:8080"))
     request_timeout_seconds: float = Field(default_factory=lambda: float(os.getenv("REQUEST_TIMEOUT_SECONDS", "45")))
+    enable_kafka: bool = Field(default_factory=lambda: _bool_env("ENABLE_KAFKA", False))
+    kafka_bootstrap_servers: str = Field(default_factory=lambda: os.getenv("KAFKA_BOOTSTRAP_SERVERS", "localhost:9092"))
+    kafka_client_id: str = Field(default_factory=lambda: os.getenv("KAFKA_CLIENT_ID", "platform-gateway"))
+    kafka_consumer_group: str = Field(default_factory=lambda: os.getenv("KAFKA_CONSUMER_GROUP", "platform-gateway"))
+    kafka_enable_auto_commit: bool = Field(default_factory=lambda: _bool_env("KAFKA_ENABLE_AUTO_COMMIT", False))
 
     scraper_mysql_enabled: bool = Field(default_factory=lambda: _bool_env("SCRAPER_MYSQL_ENABLED", False))
     scraper_mysql_host: str = Field(default_factory=lambda: os.getenv("SCRAPER_MYSQL_HOST", "localhost"))

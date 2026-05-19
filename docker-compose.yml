@@ -1,0 +1,124 @@
+services:
+  mysql:
+    image: mysql:8.4
+    environment:
+      MYSQL_ROOT_PASSWORD: stratfusion_root
+      MYSQL_DATABASE: stratfusion
+      MYSQL_USER: stratfusion
+      MYSQL_PASSWORD: stratfusion_pass
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-pstratfusion_root"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.6.1
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    ports:
+      - "2181:2181"
+
+  kafka:
+    image: confluentinc/cp-kafka:7.6.1
+    depends_on:
+      - zookeeper
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+
+  adaptive_ai_layer:
+    build:
+      context: .
+      dockerfile: docker/python-service.Dockerfile
+      args:
+        SERVICE_DIR: adaptive_ai_layer
+    environment:
+      APP_HOST: 0.0.0.0
+      APP_PORT: 8090
+      MYSQL_ENABLED: "false"
+      ENABLE_KAFKA: "true"
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+    ports:
+      - "8090:8090"
+    depends_on:
+      - kafka
+      - mysql
+
+  algo_trading_lab:
+    build:
+      context: .
+      dockerfile: docker/python-service.Dockerfile
+      args:
+        SERVICE_DIR: algo_trading_lab
+    environment:
+      APP_HOST: 0.0.0.0
+      APP_PORT: 8080
+      MYSQL_ENABLED: "false"
+    ports:
+      - "8080:8080"
+    depends_on:
+      - mysql
+
+  platform_gateway:
+    build:
+      context: .
+      dockerfile: docker/python-service.Dockerfile
+      args:
+        SERVICE_DIR: platform_gateway
+    environment:
+      APP_HOST: 0.0.0.0
+      APP_PORT: 8070
+      ADAPTIVE_AI_URL: http://adaptive_ai_layer:8090
+      ALGO_LAB_URL: http://algo_trading_lab:8080
+      ENABLE_KAFKA: "true"
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      SCRAPER_MYSQL_ENABLED: "false"
+    ports:
+      - "8070:8070"
+    depends_on:
+      - adaptive_ai_layer
+      - algo_trading_lab
+      - kafka
+
+  scraper_engine:
+    build:
+      context: .
+      dockerfile: docker/python-service.Dockerfile
+      args:
+        SERVICE_DIR: scraper_engine
+    environment:
+      MYSQL_HOST: mysql
+      MYSQL_PORT: 3306
+      MYSQL_USER: stratfusion
+      MYSQL_PASSWORD: stratfusion_pass
+      MYSQL_DATABASE: stock_news
+      ENABLE_KAFKA: "true"
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      HEADLESS: "true"
+    depends_on:
+      - mysql
+      - kafka
+
+  dashboard_web:
+    image: nginx:1.27-alpine
+    volumes:
+      - ./dashboard_web:/usr/share/nginx/html:ro
+    ports:
+      - "8060:80"
+    depends_on:
+      - platform_gateway
+
+volumes:
+  mysql_data:

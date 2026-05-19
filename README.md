@@ -21,6 +21,47 @@ The platform is intentionally not a simple AI stock predictor. AI is one intelli
 
 ## Modules
 
+## Target Architecture
+
+```text
+Market Data / News Scrapers
+        |
+        v
+Kafka Event Bus
+        |
+        v
+Data Quality Layer
+        |
+        v
+Feature Store
+        |
+        v
+Adaptive AI Layer
+        |
+        v
+Regime Engine
+        |
+        v
+Strategy Engines
+        |
+        v
+Dynamic Weight Engine
+        |
+        v
+Risk Engine
+        |
+        v
+Signal Orchestrator
+        |
+        v
+Platform Gateway
+        |
+        v
+Dashboard Web
+```
+
+The current repository now supports this architecture with Kafka-ready event contracts, optional Kafka producers/consumers, data quality validation, feature-store interfaces, model lifecycle management, signal lifecycle orchestration, and dashboard-ready gateway APIs.
+
 ### `scraper_engine/`
 
 Indian stock-market news ingestion and semantic intelligence engine.
@@ -35,6 +76,8 @@ Key features:
 - ChromaDB semantic duplicate detection
 - Sentence-transformer embedding worker
 - Semantic similarity engine
+- Kafka-ready publishing hooks for `news.raw` and `news.cleaned`
+- Data quality checks and source reliability scoring
 
 Read the full module guide:
 
@@ -54,6 +97,9 @@ Key features:
 - Backtesting and accuracy tracking
 - Custom strategy builder
 - FastAPI dashboard API
+- Shared execution context for `BACKTEST`, `PAPER`, and `LIVE_SIMULATION`
+- Strategy runner reused across execution modes
+- Risk gatekeeper that can downgrade or block unsafe signals
 
 Read the full module guide:
 
@@ -73,6 +119,9 @@ Key features:
 - Walk-forward training pipeline with model registry and evaluation
 - Strategy performance memory and paper-trading feedback loop
 - FastAPI endpoints for features, sentiment, regime, anomaly, weighting, training, models, memory, and feedback
+- Central feature store with definitions, versions, freshness, latest serving, and historical lookup
+- MLOps registry, model versions, training run tracker, evaluation store, prediction logs, and rollback
+- Persistent intelligence memory contracts
 
 Read the full module guide:
 
@@ -89,6 +138,8 @@ Key features:
 - Unified `/pipeline/run` endpoint
 - FinBERT sentiment -> regime -> anomaly -> weighting -> strategy/risk guidance orchestration
 - CORS enabled for the dashboard
+- Signal orchestrator with lifecycle states, dependency checks, audit trail, metrics, and final event publishing
+- Pipeline status, deep health, metrics, symbol APIs, and websocket stream endpoints
 
 Read the full module guide:
 
@@ -185,6 +236,122 @@ Adaptive AI Layer: http://127.0.0.1:8090/docs
 Platform Gateway: http://127.0.0.1:8070/docs
 Dashboard: http://127.0.0.1:8060
 ```
+
+## Kafka Topics
+
+```text
+news.raw
+news.cleaned
+news.sentiment.completed
+market.ohlcv.raw
+market.options.raw
+features.generated
+regime.detected
+strategy.signal.generated
+ensemble.signal.generated
+risk.evaluated
+final.signal.generated
+anomaly.detected
+model.prediction.generated
+system.dead_letter
+system.health
+```
+
+Every event uses the shared envelope:
+
+```json
+{
+  "event_id": "uuid",
+  "event_type": "news.raw",
+  "source": "scraper_engine",
+  "timestamp": "2026-05-19T00:00:00Z",
+  "symbol": "INFY",
+  "correlation_id": "uuid",
+  "payload": {},
+  "schema_version": "1.0"
+}
+```
+
+## Signal Lifecycle
+
+The gateway orchestrator tracks every signal through:
+
+```text
+CREATED
+DATA_COLLECTED
+FEATURES_READY
+REGIME_READY
+STRATEGIES_READY
+ENSEMBLE_READY
+RISK_READY
+FINALIZED
+FAILED
+EXPIRED
+```
+
+The orchestrator refuses to publish `final.signal.generated` until required dependencies are complete.
+
+## Docker Compose
+
+The repository includes `docker-compose.yml` for:
+
+- MySQL
+- Kafka
+- Zookeeper
+- scraper_engine
+- adaptive_ai_layer
+- algo_trading_lab
+- platform_gateway
+- dashboard_web
+
+Run:
+
+```bash
+docker compose up --build
+```
+
+Dashboard:
+
+```text
+http://127.0.0.1:8060
+```
+
+Gateway:
+
+```text
+http://127.0.0.1:8070/docs
+```
+
+## Observability
+
+Shared observability primitives include:
+
+- structlog configuration
+- correlation id propagation
+- in-memory metrics registry
+- latency timing
+- component health snapshots
+- audit records
+
+Gateway endpoints:
+
+```text
+GET /health
+GET /health/deep
+GET /metrics
+GET /pipeline/status/{correlation_id}
+```
+
+## Production Scaling Roadmap
+
+- Move all service-to-service handoffs from HTTP orchestration to Kafka consumers.
+- Persist orchestrator state and audit logs in MySQL.
+- Promote feature store from in-memory serving to MySQL-backed online/offline serving.
+- Add consumer lag monitoring and dead-letter replay tooling.
+- Add authentication and rate limits at `platform_gateway`.
+- Split model training into asynchronous jobs.
+- Add CI that runs tests per module with isolated `PYTHONPATH`.
+- Add schema compatibility checks for event versions.
 
 ## Safety Policy
 

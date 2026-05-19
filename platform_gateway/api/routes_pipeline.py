@@ -6,6 +6,7 @@ from fastapi import APIRouter, HTTPException, Request
 
 from clients.service_client import UpstreamServiceError
 from models.schemas import UnifiedPipelineRequest, UnifiedPipelineResponse, utc_now
+from orchestrator.pipeline_state import SignalLifecycleState
 
 router = APIRouter()
 
@@ -21,14 +22,24 @@ async def strategies(request: Request) -> list[dict[str, str]]:
 @router.post("/pipeline/run")
 async def run_pipeline(payload: UnifiedPipelineRequest, request: Request) -> UnifiedPipelineResponse:
     service = request.app.state.service
+    pipeline_state = service.orchestrator.create_pipeline(payload)
+    correlation_id = pipeline_state.correlation_id
     adaptive_payload = _adaptive_payload(payload)
     try:
+        service.orchestrator.record_state(
+            correlation_id,
+            SignalLifecycleState.DATA_COLLECTED,
+            "pipeline.data_collected",
+            {"market_rows": len(payload.market_data), "sentiment_rows": len(payload.sentiment_events)},
+        )
         sentiment_outputs = await service.adaptive_ai.finbert_batch(
             [item.model_dump(mode="json") for item in payload.sentiment_events]
         )
         enriched_sentiments = _sentiments_for_services(payload, sentiment_outputs)
         adaptive_payload["sentiment_events"] = enriched_sentiments
+        service.orchestrator.record_state(correlation_id, SignalLifecycleState.FEATURES_READY, "features.generated", {"source": "adaptive_ai_layer"})
         regime = await service.adaptive_ai.regime_detect(adaptive_payload)
+        service.orchestrator.record_state(correlation_id, SignalLifecycleState.REGIME_READY, "regime.detected", {"regime": regime.get("regime")})
         anomalies = await service.adaptive_ai.anomaly_detect(adaptive_payload)
         weighting = await service.adaptive_ai.weighting_suggest(
             {
@@ -43,6 +54,7 @@ async def run_pipeline(payload: UnifiedPipelineRequest, request: Request) -> Uni
                 "risk_level": _risk_level_from_anomalies(anomalies),
             }
         )
+        service.orchestrator.record_state(correlation_id, SignalLifecycleState.STRATEGIES_READY, "strategy.weights.ready", {"weights": weighting.get("weights", {})})
         trading_guidance = await service.algo_lab.generate_signal(
             {
                 "symbol": payload.symbol,
@@ -55,12 +67,16 @@ async def run_pipeline(payload: UnifiedPipelineRequest, request: Request) -> Uni
                 "risk_per_trade": payload.risk_per_trade,
             }
         )
+        service.orchestrator.record_state(correlation_id, SignalLifecycleState.ENSEMBLE_READY, "ensemble.signal.generated", {"source": "algo_trading_lab"})
+        service.orchestrator.record_state(correlation_id, SignalLifecycleState.RISK_READY, "risk.evaluated", {"source": "algo_trading_lab"})
         latest_news = await service.news.latest(symbol=payload.symbol, limit=10)
     except UpstreamServiceError as exc:
+        service.orchestrator.fail(correlation_id, str(exc))
         raise HTTPException(status_code=502, detail=str(exc)) from exc
     except Exception as exc:
+        service.orchestrator.fail(correlation_id, str(exc))
         raise HTTPException(status_code=500, detail=f"Pipeline failed: {exc}") from exc
-    return UnifiedPipelineResponse(
+    response = UnifiedPipelineResponse(
         symbol=payload.symbol.upper(),
         timestamp=utc_now(),
         sentiment_outputs=sentiment_outputs,
@@ -75,6 +91,46 @@ async def run_pipeline(payload: UnifiedPipelineRequest, request: Request) -> Uni
             "probability guidance. AI is one input layer, not the sole decision maker."
         ),
     )
+    await service.orchestrator.finalize(correlation_id, response)
+    return response
+
+
+@router.get("/api/overview")
+async def api_overview(request: Request) -> dict[str, object]:
+    status = await request.app.state.service.news.status()
+    return {
+        "platform": "StratFusion Market Intelligence",
+        "modules": ["scraper_engine", "adaptive_ai_layer", "algo_trading_lab", "platform_gateway", "dashboard_web"],
+        "news_store": status,
+        "external_api_layer": "platform_gateway",
+    }
+
+
+@router.get("/api/symbol/{symbol}/snapshot")
+async def symbol_snapshot(symbol: str, request: Request) -> dict[str, object]:
+    news = await request.app.state.service.news.latest(symbol=symbol, limit=10)
+    return {"symbol": symbol.upper(), "latest_news": news, "timestamp": utc_now()}
+
+
+@router.get("/api/symbol/{symbol}/signal")
+async def symbol_signal(symbol: str) -> dict[str, object]:
+    return {"symbol": symbol.upper(), "status": "run POST /pipeline/run with market data to generate a fresh signal"}
+
+
+@router.get("/api/symbol/{symbol}/regime")
+async def symbol_regime(symbol: str) -> dict[str, object]:
+    return {"symbol": symbol.upper(), "status": "regime is generated through POST /pipeline/run or Adaptive AI /regime/detect"}
+
+
+@router.get("/api/symbol/{symbol}/risk")
+async def symbol_risk(symbol: str) -> dict[str, object]:
+    return {"symbol": symbol.upper(), "status": "risk is generated through POST /pipeline/run"}
+
+
+@router.get("/api/symbol/{symbol}/sentiment")
+async def symbol_sentiment(symbol: str, request: Request) -> dict[str, object]:
+    news = await request.app.state.service.news.latest(symbol=symbol, limit=20)
+    return {"symbol": symbol.upper(), "latest_news_count": len(news), "latest_news": news}
 
 
 def _adaptive_payload(payload: UnifiedPipelineRequest) -> dict[str, Any]:

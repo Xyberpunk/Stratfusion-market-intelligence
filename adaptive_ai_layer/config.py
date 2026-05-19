@@ -40,6 +40,14 @@ class Settings(BaseModel):
     low_liquidity_volume_ratio: float = Field(default_factory=lambda: float(os.getenv("LOW_LIQUIDITY_VOLUME_RATIO", "0.45")))
     max_strategy_weight: float = Field(default_factory=lambda: float(os.getenv("MAX_STRATEGY_WEIGHT", "0.35")))
     anomaly_zscore_threshold: float = Field(default_factory=lambda: float(os.getenv("ANOMALY_ZSCORE_THRESHOLD", "3.0")))
+    enable_feature_store: bool = Field(default_factory=lambda: _bool_env("ENABLE_FEATURE_STORE", True))
+    enable_model_registry: bool = Field(default_factory=lambda: _bool_env("ENABLE_MODEL_REGISTRY", True))
+    enable_observability: bool = Field(default_factory=lambda: _bool_env("ENABLE_OBSERVABILITY", True))
+    enable_kafka: bool = Field(default_factory=lambda: _bool_env("ENABLE_KAFKA", False))
+    kafka_bootstrap_servers: str = Field(default_factory=lambda: os.getenv("KAFKA_BOOTSTRAP_SERVERS", "localhost:9092"))
+    kafka_client_id: str = Field(default_factory=lambda: os.getenv("KAFKA_CLIENT_ID", "adaptive-ai-layer"))
+    kafka_consumer_group: str = Field(default_factory=lambda: os.getenv("KAFKA_CONSUMER_GROUP", "adaptive-ai-layer"))
+    kafka_enable_auto_commit: bool = Field(default_factory=lambda: _bool_env("KAFKA_ENABLE_AUTO_COMMIT", False))
 
     @property
     def mysql_pool_kwargs(self) -> dict[str, object]:

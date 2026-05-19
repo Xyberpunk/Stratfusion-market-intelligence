@@ -22,3 +22,25 @@ async def platform_status(request: Request) -> PlatformStatus:
         scraper_news_store=await service.news.status(),
         checked_at=utc_now(),
     )
+
+
+@router.get("/metrics")
+async def metrics(request: Request) -> str:
+    return request.app.state.service.orchestrator.metrics.render()
+
+
+@router.get("/health/deep")
+async def deep_health(request: Request) -> dict[str, object]:
+    status = await platform_status(request)
+    return {
+        "status": "ok" if status.adaptive_ai == "ok" and status.algo_lab == "ok" else "degraded",
+        "components": status.model_dump(mode="json"),
+    }
+
+
+@router.get("/pipeline/status/{correlation_id}")
+async def pipeline_status(correlation_id: str, request: Request) -> object:
+    state = request.app.state.service.orchestrator.status(correlation_id)
+    if state is None:
+        return {"correlation_id": correlation_id, "status": "unknown"}
+    return state

@@ -8,6 +8,8 @@ from adaptive_learning.reward_engine import RewardEngine
 from anomaly.anomaly_detector import AnomalyDetectionEngine
 from config import Settings, get_settings
 from features.feature_builder import AdaptiveFeatureBuilder
+from feature_store.feature_store import InMemoryFeatureStore
+from feature_store.serving import FeatureServingService
 from logger import configure_logging
 from memory.feedback_store import FeedbackStore
 from memory.performance_memory import StrategyPerformanceMemory
@@ -27,6 +29,8 @@ class AdaptiveAIService:
     def __init__(self, settings: Settings) -> None:
         self.settings = settings
         self.feature_builder = AdaptiveFeatureBuilder()
+        self.feature_store = InMemoryFeatureStore()
+        self.feature_serving = FeatureServingService(self.feature_store)
         self.regime_detector = RegimeDetectionEngine(settings)
         self.anomaly_detector = AnomalyDetectionEngine(settings)
         self.weight_engine = DynamicWeightEngine(settings)
