@@ -1,12 +1,15 @@
 # StratFusion Market Intelligence
 
-StratFusion is an adaptive Indian market-intelligence platform with two production-oriented modules:
+StratFusion is an adaptive Indian market-intelligence platform with three production-oriented modules:
 
 1. **Web & News Market Intelligence**
    Real-time ethical news ingestion, duplicate suppression, semantic event detection, MySQL storage, embeddings, and ChromaDB vector search.
 
 2. **AI Algo Trading Lab**
    Adaptive multi-strategy trading intelligence with independent strategy engines, regime-aware ensemble weighting, risk controls, backtesting, accuracy tracking, custom strategy building, and FastAPI dashboard endpoints.
+
+3. **Adaptive AI/ML Intelligence Layer**
+   Advanced feature engineering, FinBERT sentiment, regime intelligence, anomaly detection, dynamic strategy-weight learning, market memory, training pipelines, and safe adaptive-learning foundations.
 
 The platform is intentionally not a simple AI stock predictor. AI is one intelligence layer inside a broader system of market data, news intelligence, algorithms, regime detection, and risk management.
 
@@ -50,6 +53,25 @@ Read the full module guide:
 
 [algo_trading_lab/README.md](algo_trading_lab/README.md)
 
+### `adaptive_ai_layer/`
+
+Adaptive AI/ML intelligence module for knowing when to trust which strategy.
+
+Key features:
+
+- Volatility, momentum, sentiment, options, correlation, regime, and anomaly features
+- FinBERT batch sentiment service with calibration and event extraction
+- Rule-based regime engine plus XGBoost and HDBSCAN/KMeans interfaces
+- Dynamic strategy weighting using regime, sentiment, volatility, anomalies, risk, and performance memory
+- Isolation Forest, z-score, divergence, and fake-breakout anomaly detection
+- Walk-forward training pipeline with model registry and evaluation
+- Strategy performance memory and paper-trading feedback loop
+- FastAPI endpoints for features, sentiment, regime, anomaly, weighting, training, models, memory, and feedback
+
+Read the full module guide:
+
+[adaptive_ai_layer/README.md](adaptive_ai_layer/README.md)
+
 ## Quick Start
 
 Clone the repo:
@@ -84,10 +106,23 @@ cp .env.example .env
 python main.py
 ```
 
+Run the Adaptive AI/ML Intelligence Layer:
+
+```bash
+cd adaptive_ai_layer
+py -3.11 -m venv .venv
+source .venv/Scripts/activate
+python -m pip install --upgrade pip setuptools wheel
+python -m pip install -r requirements.txt
+cp .env.example .env
+python main.py
+```
+
 API docs:
 
 ```text
-http://127.0.0.1:8080/docs
+Algo Trading Lab: http://127.0.0.1:8080/docs
+Adaptive AI Layer: http://127.0.0.1:8090/docs
 ```
 
 ## Safety Policy
@@ -128,6 +163,19 @@ Forbidden:
 │   ├── accuracy/
 │   ├── custom_builder/
 │   ├── ai/
+│   ├── api/
+│   └── tests/
+│
+├── adaptive_ai_layer/
+│   ├── features/
+│   ├── datasets/
+│   ├── training/
+│   ├── regime/
+│   ├── weighting/
+│   ├── anomaly/
+│   ├── sentiment/
+│   ├── memory/
+│   ├── adaptive_learning/
 │   ├── api/
 │   └── tests/
 │

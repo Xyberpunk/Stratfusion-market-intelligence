@@ -14,6 +14,7 @@ __pycache__/
 !.env.example
 
 chroma_db/
+model_artifacts/
 *.sqlite3
 *.db
 
@@ -26,6 +27,8 @@ scraper_engine/storage/processed/*
 
 algo_trading_lab/.venv/
 scraper_engine/.venv/
+adaptive_ai_layer/.venv/
+adaptive_ai_layer/model_artifacts/
 
 .DS_Store
 Thumbs.db
