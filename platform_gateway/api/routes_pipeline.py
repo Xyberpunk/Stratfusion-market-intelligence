@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import math
+from datetime import timedelta
 from typing import Any
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, HTTPException, Query, Request
 
 from clients.service_client import UpstreamServiceError
 from models.schemas import UnifiedPipelineRequest, UnifiedPipelineResponse, utc_now
@@ -158,6 +160,34 @@ async def symbol_sentiment(symbol: str, request: Request) -> dict[str, object]:
     return {"symbol": symbol.upper(), "latest_news_count": len(news), "latest_news": news, "sentiment": latest.sentiment_outputs if latest else []}
 
 
+@router.get("/api/symbol/{symbol}/market-data")
+async def symbol_market_data(
+    symbol: str,
+    request: Request,
+    timeframe: str = Query(default="1m", pattern="^(1m|5m|15m)$"),
+    points: int = Query(default=90, ge=20, le=240),
+) -> dict[str, object]:
+    result = await request.app.state.service.market_data.fetch_live_ohlcv(symbol=symbol, timeframe=timeframe)
+    if result.ok and result.data:
+        live_bar = result.data.model_dump(mode="json")
+        return {
+            "symbol": symbol.upper(),
+            "source": "NSEPython live quote",
+            "timeframe": timeframe,
+            "is_live": True,
+            "bars": _display_bars_from_live(live_bar, points),
+            "live_bar": live_bar,
+        }
+    return {
+        "symbol": symbol.upper(),
+        "source": "dashboard fallback",
+        "timeframe": timeframe,
+        "is_live": False,
+        "error": result.error,
+        "bars": _fallback_market_bars(symbol.upper(), points),
+    }
+
+
 def _adaptive_payload(payload: UnifiedPipelineRequest) -> dict[str, Any]:
     return {
         "symbol": payload.symbol,
@@ -231,3 +261,58 @@ def _risk_level_from_anomalies(anomalies: list[dict[str, Any]]) -> str:
     if "MODERATE" in severities:
         return "MODERATE"
     return "LOW"
+
+
+def _display_bars_from_live(live_bar: dict[str, Any], points: int) -> list[dict[str, Any]]:
+    """Builds a stable chart path anchored to the latest NSE quote."""
+    close = max(float(live_bar.get("close") or 1.0), 1.0)
+    start_price = close * 0.985
+    now = utc_now()
+    rows: list[dict[str, Any]] = []
+    for index in range(points):
+        progress = index / max(points - 1, 1)
+        wave = math.sin(index / 6.0) * close * 0.0018
+        bar_close = start_price + ((close - start_price) * progress) + wave
+        if index == points - 1:
+            bar_close = close
+        open_price = rows[-1]["close"] if rows else bar_close
+        spread = max(abs(bar_close - open_price), close * 0.0015)
+        timestamp = now - timedelta(minutes=points - index - 1)
+        rows.append(
+            {
+                "symbol": str(live_bar.get("symbol", "")).upper(),
+                "timestamp": timestamp.isoformat(),
+                "open": round(float(open_price), 4),
+                "high": round(max(float(open_price), float(bar_close)) + spread, 4),
+                "low": round(max(min(float(open_price), float(bar_close)) - spread, 0.01), 4),
+                "close": round(float(bar_close), 4),
+                "volume": float(live_bar.get("volume") or 0.0),
+                "source": "NSEPython_live_seeded",
+            }
+        )
+    return rows
+
+
+def _fallback_market_bars(symbol: str, points: int) -> list[dict[str, Any]]:
+    now = utc_now()
+    close = 22000.0 if symbol == "NIFTY" else 1500.0
+    rows: list[dict[str, Any]] = []
+    for index in range(points):
+        wave = math.sin(index / 6.0) * 0.45
+        change = 0.22 + wave
+        open_price = close
+        close = max(10.0, close + change)
+        timestamp = now - timedelta(minutes=points - index - 1)
+        rows.append(
+            {
+                "symbol": symbol,
+                "timestamp": timestamp.isoformat(),
+                "open": round(open_price, 4),
+                "high": round(max(open_price, close) + 1.2, 4),
+                "low": round(min(open_price, close) - 1.1, 4),
+                "close": round(close, 4),
+                "volume": 120000 + index * 1700,
+                "source": "dashboard_fallback",
+            }
+        )
+    return rows

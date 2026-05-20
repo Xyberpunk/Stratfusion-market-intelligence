@@ -108,7 +108,7 @@ async function loadStrategies() {
 }
 
 async function runPipeline() {
-  const payload = buildPayload();
+  const payload = await buildPayload();
   drawMarket(state.marketData);
   try {
     const result = await request("/api/pipeline/run", {
@@ -122,9 +122,9 @@ async function runPipeline() {
   }
 }
 
-function buildPayload() {
+async function buildPayload() {
   const symbol = els.symbol.value.trim().toUpperCase() || "INFY";
-  state.marketData = generateMarketData(symbol);
+  state.marketData = await loadMarketData(symbol);
   const now = new Date().toISOString();
   return {
     symbol,
@@ -157,7 +157,19 @@ function buildPayload() {
   };
 }
 
-function generateMarketData(symbol, drift = 0.32) {
+async function loadMarketData(symbol) {
+  try {
+    const result = await request(`/api/symbol/${encodeURIComponent(symbol)}/market-data?timeframe=1m&points=90`);
+    if (Array.isArray(result.bars) && result.bars.length) {
+      return result.bars;
+    }
+  } catch (error) {
+    // Keep the dashboard usable when live NSEPython data is unavailable.
+  }
+  return generateMarketData(symbol, 0.32, "dashboard_fallback");
+}
+
+function generateMarketData(symbol, drift = 0.32, source = "dashboard_fallback") {
   const rows = [];
   const start = new Date();
   start.setDate(start.getDate() - 89);
@@ -180,7 +192,7 @@ function generateMarketData(symbol, drift = 0.32) {
       low,
       close,
       volume: 120000 + i * 1700 + (i === 88 ? 260000 : 0),
-      source: "dashboard_demo",
+      source,
     });
   }
   return rows;
@@ -274,7 +286,8 @@ function drawMarket(rows) {
   ctx.stroke();
   ctx.fillStyle = "#e6fffb";
   ctx.font = "20px Inter, sans-serif";
-  ctx.fillText(`${rows[0].symbol} demo OHLCV path`, pad, 34);
+  const sourceLabel = String(rows[0].source || "market").replaceAll("_", " ");
+  ctx.fillText(`${rows[0].symbol} ${sourceLabel} OHLCV path`, pad, 34);
 }
 
 function percent(value) {
@@ -308,4 +321,8 @@ function escapeAttr(value) {
 
 state.marketData = generateMarketData("INFY");
 drawMarket(state.marketData);
+loadMarketData("INFY").then((rows) => {
+  state.marketData = rows;
+  drawMarket(rows);
+});
 checkStatus();

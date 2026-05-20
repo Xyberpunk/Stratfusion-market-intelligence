@@ -9,6 +9,7 @@ from config import Settings, get_settings
 from logger import configure_logging
 from models.schemas import UnifiedPipelineResponse
 from orchestrator.signal_orchestrator import SignalOrchestrator
+from shared.data.market_data_service import MarketDataService
 from storage.news_repository import NewsRepository
 
 
@@ -20,6 +21,7 @@ class PlatformGatewayService:
         self.adaptive_ai = AdaptiveAIClient(settings.adaptive_ai_url, settings.request_timeout_seconds)
         self.algo_lab = AlgoLabClient(settings.algo_lab_url, settings.request_timeout_seconds)
         self.news = NewsRepository(settings)
+        self.market_data = MarketDataService()
         self.latest_signals: dict[str, UnifiedPipelineResponse] = {}
         self.orchestrator = SignalOrchestrator(
             kafka_enabled=settings.enable_kafka,
