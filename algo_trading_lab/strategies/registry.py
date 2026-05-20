@@ -23,6 +23,14 @@ from strategies.volatility.options_iv import OptionsIVStrategy
 class StrategyRegistry:
     """Registry for all independent strategy engines."""
 
+    core_strategy_names = [
+        "MACD Momentum",
+        "VWAP",
+        "RSI Reversal",
+        "ATR Volatility System",
+        "FinBERT Sentiment",
+    ]
+
     def __init__(self) -> None:
         strategies: list[BaseStrategy] = [
             BreakoutStrategy(),
@@ -59,5 +67,5 @@ class StrategyRegistry:
 
     def selected(self, names: list[str] | None) -> list[BaseStrategy]:
         if not names:
-            return self.all()
+            return [self.get(name) for name in self.core_strategy_names]
         return [self.get(name) for name in names]

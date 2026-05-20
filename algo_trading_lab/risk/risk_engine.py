@@ -31,14 +31,18 @@ class RiskEngine:
         if context.features.empty:
             risk = RiskOutput(
                 symbol=context.symbol.upper(),
+                approved=False,
+                input_action=ensemble.suggested_action.value,
+                final_action=TradingSignal.HOLD.value,
                 entry_price=0.0,
-                stop_loss=0.0,
-                target=0.0,
+                stop_loss=None,
+                target=None,
                 risk_reward_ratio=0.0,
                 position_size=0.0,
                 capital_at_risk=0.0,
                 max_drawdown_limit=self.settings.max_drawdown_limit,
                 risk_level=RiskLevel.HIGH,
+                reason="No market data is available.",
             )
             return FinalTradingGuidance(ensemble=ensemble, risk=risk, final_action=TradingSignal.HOLD, final_explanation="Risk engine moved action to HOLD because no market data is available.")
         latest = context.features.iloc[-1]
@@ -58,8 +62,21 @@ class RiskEngine:
             stop_loss=stop,
         )
         risk_level = self._risk_level(context, rr)
+        final_action = self._override_action(proposed_action, risk_level, rr, context, ensemble)
+        approved = final_action == proposed_action and final_action != TradingSignal.HOLD and risk_level not in {RiskLevel.HIGH, RiskLevel.EXTREME}
+        if risk_level == RiskLevel.EXTREME:
+            position_size = 0.0
+            capital_at_risk = 0.0
+            stop = None
+            target = None
+        elif risk_level == RiskLevel.HIGH:
+            position_size = round(position_size * 0.5, 4)
+            capital_at_risk = round(capital_at_risk * 0.5, 2)
         risk = RiskOutput(
             symbol=context.symbol.upper(),
+            approved=approved,
+            input_action=proposed_action.value,
+            final_action=final_action.value,
             entry_price=round(entry, 2),
             stop_loss=stop,
             target=target,
@@ -68,27 +85,39 @@ class RiskEngine:
             capital_at_risk=capital_at_risk,
             max_drawdown_limit=self.settings.max_drawdown_limit,
             risk_level=risk_level,
+            reason=self._risk_reason(proposed_action, final_action, risk_level, rr, context),
         )
-        final_action = self._override_action(proposed_action, risk_level, rr, context)
         final_explanation = self._final_explanation(ensemble, risk, final_action)
         return FinalTradingGuidance(ensemble=ensemble, risk=risk, final_action=final_action, final_explanation=final_explanation)
 
     def _risk_level(self, context: StrategyContext, risk_reward_ratio: float) -> RiskLevel:
         atr_pct = float(context.features.iloc[-1].get("atr_pct", 0.0))
         drawdown = abs(self.drawdown_control.max_drawdown(context.features["close"].tail(60)))
+        if atr_pct >= self.settings.high_volatility_atr_pct * 2.2 or drawdown >= self.settings.max_drawdown_limit * 1.25:
+            return RiskLevel.EXTREME
         if atr_pct >= self.settings.high_volatility_atr_pct * 1.5 or risk_reward_ratio < 1.2 or drawdown >= self.settings.max_drawdown_limit:
             return RiskLevel.HIGH
         if atr_pct >= self.settings.high_volatility_atr_pct or risk_reward_ratio < 1.8:
             return RiskLevel.MODERATE
         return RiskLevel.LOW
 
-    def _override_action(self, action: TradingSignal, risk_level: RiskLevel, risk_reward_ratio: float, context: StrategyContext) -> TradingSignal:
+    def _override_action(self, action: TradingSignal, risk_level: RiskLevel, risk_reward_ratio: float, context: StrategyContext, ensemble: EnsembleOutput) -> TradingSignal:
         if action == TradingSignal.HOLD:
+            return TradingSignal.HOLD
+        if risk_level == RiskLevel.EXTREME:
+            return TradingSignal.AVOID
+        if ensemble.confidence.value in {"LOW"}:
             return TradingSignal.HOLD
         panic_return = float(context.features["close"].pct_change(5).iloc[-1]) if len(context.features.index) >= 6 else 0.0
         if risk_level == RiskLevel.HIGH and (risk_reward_ratio < 1.5 or panic_return <= self.settings.panic_drawdown_pct):
             return TradingSignal.HOLD
         return action
+
+    def _risk_reason(self, proposed: TradingSignal, final: TradingSignal, risk_level: RiskLevel, rr: float, context: StrategyContext) -> str:
+        if final != proposed:
+            return f"Risk engine overrode {proposed.value} to {final.value}; risk level is {risk_level.value} and risk/reward is {rr:.2f}."
+        atr_pct = float(context.features.iloc[-1].get("atr_pct", 0.0))
+        return f"Risk engine approved {final.value}; risk level is {risk_level.value}, ATR percentage is {atr_pct:.2%}, and risk/reward is {rr:.2f}."
 
     @staticmethod
     def _final_explanation(ensemble: EnsembleOutput, risk: RiskOutput, final_action: TradingSignal) -> str:

@@ -14,6 +14,7 @@ from data.feature_builder import FeatureBuilder
 from ensemble.dynamic_weighting import DynamicWeightingEngine
 from ensemble.ensemble_engine import EnsembleEngine
 from ensemble.weight_manager import WeightManager
+from explanation.explanation_engine import FinalExplanationEngine
 from logger import configure_logging
 from models.enums import RiskLevel
 from models.schemas import (
@@ -42,6 +43,7 @@ class AlgoTradingLabService:
         self.regime_detector = RegimeDetector(settings)
         self.weight_manager = WeightManager(settings, self.registry)
         self.ensemble_engine = EnsembleEngine(DynamicWeightingEngine(self.weight_manager), ExplanationEngine())
+        self.final_explainer = FinalExplanationEngine()
         self.risk_engine = RiskEngine(settings)
         self.backtester = Backtester(self.feature_builder)
         self.accuracy_tracker = AccuracyTracker()
@@ -90,6 +92,16 @@ class AlgoTradingLabService:
             risk_per_trade=request.risk_per_trade,
         )
         anomalies = self.anomaly_detector.detect(context)
+        sentiment_score = self._sentiment_score(request)
+        options_summary = request.options_chain.model_dump() if request.options_chain else None
+        guidance.final_explanation = self.final_explainer.explain(
+            ensemble=guidance.ensemble,
+            risk=guidance.risk,
+            strategy_signals=signals,
+            sentiment_score=sentiment_score,
+            options_summary=options_summary,
+            regime_explanation=f"Regime detector classified the market as {regime.regime.value} with {regime.confidence:.0%} confidence.",
+        )
         self.repository.save_ensemble(ensemble)
         self.repository.save_risk(guidance.risk)
         return {
@@ -99,6 +111,14 @@ class AlgoTradingLabService:
             "anomalies": anomalies,
             "dashboard_sections": ["Web & News Market Intelligence", "AI Algo Trading Lab"],
         }
+
+    @staticmethod
+    def _sentiment_score(request: GenerateSignalRequest) -> float | None:
+        if not request.sentiments:
+            return None
+        weighted = sum(item.sentiment_score * item.confidence for item in request.sentiments)
+        confidence = sum(item.confidence for item in request.sentiments) or 1.0
+        return weighted / confidence
 
     def run_ensemble(self, request: EnsembleRunRequest):
         output = self.ensemble_engine.run(

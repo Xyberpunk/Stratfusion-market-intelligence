@@ -21,6 +21,9 @@ class AdaptiveAIClient:
     async def finbert_batch(self, items: list[dict[str, object]]) -> list[dict[str, Any]]:
         return await self.client.post("/sentiment/finbert/batch", {"items": items})
 
+    async def feature_vector(self, payload: dict[str, Any]) -> dict[str, Any]:
+        return await self.client.post("/features/vector", payload)
+
     async def regime_detect(self, payload: dict[str, Any]) -> dict[str, Any]:
         return await self.client.post("/regime/detect", payload)
 

@@ -95,18 +95,25 @@ class EnsembleOutput(BaseModel):
     risk_level: RiskLevel
     explanation: str
     strategy_breakdown: list[StrategyBreakdown]
+    regime: str | None = None
+    weights_used: dict[str, float] = Field(default_factory=dict)
 
 
 class RiskOutput(BaseModel):
     symbol: str
+    timestamp: datetime = Field(default_factory=utc_now)
+    approved: bool = False
+    input_action: str = "HOLD"
+    final_action: str = "HOLD"
     entry_price: float
-    stop_loss: float
-    target: float
-    risk_reward_ratio: float
-    position_size: float
-    capital_at_risk: float
+    stop_loss: float | None
+    target: float | None
+    risk_reward_ratio: float | None
+    position_size: float | None
+    capital_at_risk: float | None
     max_drawdown_limit: float
     risk_level: RiskLevel
+    reason: str = ""
 
 
 class FinalTradingGuidance(BaseModel):

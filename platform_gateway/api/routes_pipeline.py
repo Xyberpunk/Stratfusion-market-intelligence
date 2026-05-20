@@ -21,6 +21,15 @@ async def strategies(request: Request) -> list[dict[str, str]]:
 
 @router.post("/pipeline/run")
 async def run_pipeline(payload: UnifiedPipelineRequest, request: Request) -> UnifiedPipelineResponse:
+    return await _run_pipeline(payload, request)
+
+
+@router.post("/api/pipeline/run")
+async def run_api_pipeline(payload: UnifiedPipelineRequest, request: Request) -> UnifiedPipelineResponse:
+    return await _run_pipeline(payload, request)
+
+
+async def _run_pipeline(payload: UnifiedPipelineRequest, request: Request) -> UnifiedPipelineResponse:
     service = request.app.state.service
     pipeline_state = service.orchestrator.create_pipeline(payload)
     correlation_id = pipeline_state.correlation_id
@@ -37,7 +46,8 @@ async def run_pipeline(payload: UnifiedPipelineRequest, request: Request) -> Uni
         )
         enriched_sentiments = _sentiments_for_services(payload, sentiment_outputs)
         adaptive_payload["sentiment_events"] = enriched_sentiments
-        service.orchestrator.record_state(correlation_id, SignalLifecycleState.FEATURES_READY, "features.generated", {"source": "adaptive_ai_layer"})
+        feature_vector = await service.adaptive_ai.feature_vector(adaptive_payload)
+        service.orchestrator.record_state(correlation_id, SignalLifecycleState.FEATURES_READY, "features.generated", {"source": "adaptive_ai_layer", "features": feature_vector.get("features", {})})
         regime = await service.adaptive_ai.regime_detect(adaptive_payload)
         service.orchestrator.record_state(correlation_id, SignalLifecycleState.REGIME_READY, "regime.detected", {"regime": regime.get("regime")})
         anomalies = await service.adaptive_ai.anomaly_detect(adaptive_payload)
@@ -80,6 +90,7 @@ async def run_pipeline(payload: UnifiedPipelineRequest, request: Request) -> Uni
         symbol=payload.symbol.upper(),
         timestamp=utc_now(),
         sentiment_outputs=sentiment_outputs,
+        feature_vector=feature_vector,
         regime=regime,
         anomalies=anomalies,
         weighting=weighting,
@@ -92,6 +103,7 @@ async def run_pipeline(payload: UnifiedPipelineRequest, request: Request) -> Uni
         ),
     )
     await service.orchestrator.finalize(correlation_id, response)
+    service.latest_signals[payload.symbol.upper()] = response
     return response
 
 
@@ -109,28 +121,37 @@ async def api_overview(request: Request) -> dict[str, object]:
 @router.get("/api/symbol/{symbol}/snapshot")
 async def symbol_snapshot(symbol: str, request: Request) -> dict[str, object]:
     news = await request.app.state.service.news.latest(symbol=symbol, limit=10)
-    return {"symbol": symbol.upper(), "latest_news": news, "timestamp": utc_now()}
+    latest = request.app.state.service.latest_signals.get(symbol.upper())
+    return {"symbol": symbol.upper(), "latest_news": news, "latest_signal": latest, "timestamp": utc_now()}
 
 
 @router.get("/api/symbol/{symbol}/signal")
-async def symbol_signal(symbol: str) -> dict[str, object]:
-    return {"symbol": symbol.upper(), "status": "run POST /pipeline/run with market data to generate a fresh signal"}
+async def symbol_signal(symbol: str, request: Request) -> dict[str, object]:
+    latest = request.app.state.service.latest_signals.get(symbol.upper())
+    return {"symbol": symbol.upper(), "signal": latest.trading_guidance if latest else None, "status": "ready" if latest else "no signal yet"}
 
 
 @router.get("/api/symbol/{symbol}/regime")
-async def symbol_regime(symbol: str) -> dict[str, object]:
-    return {"symbol": symbol.upper(), "status": "regime is generated through POST /pipeline/run or Adaptive AI /regime/detect"}
+async def symbol_regime(symbol: str, request: Request) -> dict[str, object]:
+    latest = request.app.state.service.latest_signals.get(symbol.upper())
+    return {"symbol": symbol.upper(), "regime": latest.regime if latest else None}
 
 
 @router.get("/api/symbol/{symbol}/risk")
-async def symbol_risk(symbol: str) -> dict[str, object]:
-    return {"symbol": symbol.upper(), "status": "risk is generated through POST /pipeline/run"}
+async def symbol_risk(symbol: str, request: Request) -> dict[str, object]:
+    latest = request.app.state.service.latest_signals.get(symbol.upper())
+    risk = None
+    if latest:
+        guidance = latest.trading_guidance.get("guidance", latest.trading_guidance)
+        risk = guidance.get("risk") if isinstance(guidance, dict) else None
+    return {"symbol": symbol.upper(), "risk": risk}
 
 
 @router.get("/api/symbol/{symbol}/sentiment")
 async def symbol_sentiment(symbol: str, request: Request) -> dict[str, object]:
     news = await request.app.state.service.news.latest(symbol=symbol, limit=20)
-    return {"symbol": symbol.upper(), "latest_news_count": len(news), "latest_news": news}
+    latest = request.app.state.service.latest_signals.get(symbol.upper())
+    return {"symbol": symbol.upper(), "latest_news_count": len(news), "latest_news": news, "sentiment": latest.sentiment_outputs if latest else []}
 
 
 def _adaptive_payload(payload: UnifiedPipelineRequest) -> dict[str, Any]:

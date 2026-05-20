@@ -89,6 +89,7 @@ class UnifiedPipelineResponse(BaseModel):
     symbol: str
     timestamp: datetime
     sentiment_outputs: list[dict[str, Any]]
+    feature_vector: dict[str, Any] | None = None
     regime: dict[str, Any]
     anomalies: list[dict[str, Any]]
     weighting: dict[str, Any]

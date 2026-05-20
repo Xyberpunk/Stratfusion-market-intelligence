@@ -69,6 +69,8 @@ class SignalAggregator:
             risk_level=risk_level,
             explanation=explanation,
             strategy_breakdown=breakdown,
+            regime=regime.regime.value if regime else None,
+            weights_used=weights,
         )
 
     @staticmethod
@@ -84,5 +86,5 @@ class SignalAggregator:
         if probability >= 0.7:
             return ConfidenceLabel.HIGH
         if probability >= 0.55:
-            return ConfidenceLabel.MEDIUM
+            return ConfidenceLabel.MODERATE
         return ConfidenceLabel.LOW

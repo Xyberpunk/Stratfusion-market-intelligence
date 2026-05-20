@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Request
 
-from models.schemas import FeatureBuildRequest, FeatureBuildResponse
+from models.schemas import FeatureBuildRequest, FeatureBuildResponse, FeatureVectorOutput
 
 router = APIRouter()
 
@@ -17,6 +17,13 @@ async def build_features(payload: FeatureBuildRequest, request: Request) -> Feat
             numeric = {key: value for key, value in latest.items() if isinstance(value, (int, float))}
             request.app.state.service.feature_store.write_snapshot(payload.symbol, timestamp, numeric)
     return response
+
+
+@router.post("/features/vector")
+async def build_feature_vector(payload: FeatureBuildRequest, request: Request) -> FeatureVectorOutput:
+    vector = request.app.state.service.feature_builder.latest_vector(payload)
+    request.app.state.service.feature_store.write_snapshot(payload.symbol, vector.timestamp, {k: v for k, v in vector.features.items() if isinstance(v, (int, float))})
+    return vector
 
 
 @router.get("/features/latest/{symbol}")

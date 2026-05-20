@@ -11,6 +11,14 @@ from strategies.registry import StrategyRegistry
 class WeightManager:
     """Produces static, custom, regime-adjusted, accuracy-adjusted, confidence-adjusted weights."""
 
+    default_weights: dict[str, float] = {
+        "MACD Momentum": 0.25,
+        "VWAP": 0.20,
+        "RSI Reversal": 0.20,
+        "ATR Volatility System": 0.15,
+        "FinBERT Sentiment": 0.20,
+    }
+
     def __init__(self, settings: Settings, registry: StrategyRegistry) -> None:
         self.settings = settings
         self.registry = registry
@@ -19,7 +27,7 @@ class WeightManager:
     def base_weights(self, signals: list[StrategySignal], custom_weights: dict[str, float] | None = None) -> dict[str, float]:
         if not signals:
             return {}
-        weights = {signal.strategy_name: 1.0 for signal in signals}
+        weights = {signal.strategy_name: self.default_weights.get(signal.strategy_name, 0.10) for signal in signals}
         if custom_weights:
             for signal in signals:
                 if signal.strategy_name in custom_weights:

@@ -44,4 +44,7 @@ class OptionsFeatureBuilder:
         joined["unusual_oi_activity"] = oi_total / oi_total.rolling(20, min_periods=3).mean().replace(0, pd.NA)
         volume_total = joined["options_volume_call"] + joined["options_volume_put"]
         joined["options_volume_imbalance"] = (joined["options_volume_put"] - joined["options_volume_call"]) / volume_total.replace(0, pd.NA)
+        oi_total = joined["call_oi_change"].abs() + joined["put_oi_change"].abs()
+        joined["put_call_oi_change_ratio"] = joined["put_oi_change"] / joined["call_oi_change"].replace(0, pd.NA)
+        joined["oi_imbalance"] = (joined["put_oi_change"] - joined["call_oi_change"]) / oi_total.replace(0, pd.NA)
         return joined.drop(columns=["date"])

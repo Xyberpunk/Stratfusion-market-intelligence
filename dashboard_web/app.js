@@ -111,7 +111,7 @@ async function runPipeline() {
   const payload = buildPayload();
   drawMarket(state.marketData);
   try {
-    const result = await request("/pipeline/run", {
+    const result = await request("/api/pipeline/run", {
       method: "POST",
       body: JSON.stringify(payload),
     });

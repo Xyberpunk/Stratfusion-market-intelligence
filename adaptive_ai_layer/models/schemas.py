@@ -75,6 +75,13 @@ class FeatureBuildResponse(BaseModel):
     explanation: str
 
 
+class FeatureVectorOutput(BaseModel):
+    symbol: str
+    timestamp: datetime
+    timeframe: str = "1m"
+    features: dict[str, float | int | None]
+
+
 class RegimeDetectionRequest(FeatureBuildRequest):
     """Request body for regime detection using the shared feature input contract."""
 

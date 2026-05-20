@@ -7,6 +7,7 @@ class TradingSignal(StrEnum):
     BUY = "BUY"
     SELL = "SELL"
     HOLD = "HOLD"
+    AVOID = "AVOID"
 
 
 class SentimentLabel(StrEnum):
@@ -19,10 +20,12 @@ class RiskLevel(StrEnum):
     LOW = "LOW"
     MODERATE = "MODERATE"
     HIGH = "HIGH"
+    EXTREME = "EXTREME"
 
 
 class ConfidenceLabel(StrEnum):
     LOW = "LOW"
+    MODERATE = "MODERATE"
     MEDIUM = "MEDIUM"
     HIGH = "HIGH"
 

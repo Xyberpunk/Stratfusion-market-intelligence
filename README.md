@@ -62,6 +62,56 @@ Dashboard Web
 
 The current repository now supports this architecture with Kafka-ready event contracts, optional Kafka producers/consumers, data quality validation, feature-store interfaces, model lifecycle management, signal lifecycle orchestration, and dashboard-ready gateway APIs.
 
+## Current Working Intelligence Flow
+
+The next implementation phase adds one concrete end-to-end intelligence path:
+
+```text
+headline
+    |
+    v
+FinBERT-style sentiment
+    |
+    v
+feature vector
+    |
+    v
+simple regime detector
+    |
+    v
+MACD / VWAP / RSI / ATR strategies
+    |
+    v
+rule-based ensemble
+    |
+    v
+risk override engine
+    |
+    v
+final signal
+    |
+    v
+platform_gateway -> dashboard_web
+```
+
+Implemented behavior:
+
+- `shared/data` provides NSEPython-backed live quote and options-chain services with safe retry/failure behavior and optional Kafka publishing for `market.ohlcv.raw` and `market.options.raw`.
+- `adaptive_ai_layer/features` now produces the dashboard-ready feature vector: RSI, MACD, EMA slope, VWAP distance, ATR, Bollinger width, realized volatility, rolling sentiment counts, PCR trend, IV spike, and OI imbalance.
+- `adaptive_ai_layer/regime` now returns one of `TRENDING`, `SIDEWAYS`, or `HIGH_VOLATILITY` using deterministic rules. High volatility takes priority when volatility is extreme.
+- `algo_trading_lab` now runs the focused core strategy set: MACD Momentum, VWAP, RSI Reversal, ATR Volatility System, and FinBERT Sentiment.
+- The ensemble uses rule-based weights only: MACD `0.25`, VWAP `0.20`, RSI `0.20`, ATR `0.15`, Sentiment `0.20`, then adjusts weights by regime.
+- The risk engine can downgrade or block signals. Low confidence becomes `HOLD`; extreme volatility or drawdown becomes `AVOID`.
+- The explanation engine explains regime context, strategy agreement, sentiment contribution, options contribution, and any risk override.
+- `platform_gateway` is the dashboard's only backend surface. The dashboard pipeline call goes through `POST /api/pipeline/run`.
+- Strategy performance memory records outcomes by strategy, symbol, regime, signal, PnL, drawdown, volatility, and timestamp for future adaptive trust scoring.
+
+Run the local E2E test:
+
+```bash
+python -m pytest platform_gateway/tests/test_gateway_e2e_pipeline.py
+```
+
 ### `scraper_engine/`
 
 Indian stock-market news ingestion and semantic intelligence engine.
@@ -340,6 +390,12 @@ GET /health
 GET /health/deep
 GET /metrics
 GET /pipeline/status/{correlation_id}
+POST /api/pipeline/run
+GET /api/symbol/{symbol}/snapshot
+GET /api/symbol/{symbol}/signal
+GET /api/symbol/{symbol}/regime
+GET /api/symbol/{symbol}/risk
+GET /api/symbol/{symbol}/sentiment
 ```
 
 ## Production Scaling Roadmap
@@ -423,4 +479,4 @@ Forbidden:
 
 ## Status
 
-This repository contains the initial production-grade scaffold and working core logic for both modules. Configure `.env` files before running live MySQL-backed ingestion or APIs.
+This repository contains the production-oriented scaffold plus a working intelligence path from headline and market inputs to a dashboard-ready final signal. Configure `.env` files before running live MySQL-backed ingestion or APIs.
