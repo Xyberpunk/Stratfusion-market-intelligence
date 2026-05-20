@@ -11,7 +11,12 @@ from storage.news_repository import NewsRepository
 @pytest.mark.asyncio
 async def test_news_repository_uses_local_memory_when_mysql_disabled() -> None:
     repo = NewsRepository(Settings(scraper_mysql_enabled=False))
-    assert await repo.status() == "local-memory"
+    assert await repo.status() == "live-fallback"
+
+    async def no_live_news(symbol: str | None, limit: int):
+        return []
+
+    repo._latest_live = no_live_news  # type: ignore[method-assign]
 
     repo.record_dashboard_headlines(
         [
