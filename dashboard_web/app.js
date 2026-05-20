@@ -239,7 +239,7 @@ function renderNews(news) {
       <td>${escapeHtml(formatTime(item.published_at || item.scraped_at))}</td>
       <td>${escapeHtml(item.sentiment || "pending")}</td>
     </tr>
-  `).join("") || "<tr><td colspan=\"4\">No stored scraper news found. Enable SCRAPER_MYSQL_ENABLED in the gateway to show live ingestion data.</td></tr>";
+  `).join("") || "<tr><td colspan=\"4\">No news yet. Run the intelligence pipeline or enable scraper MySQL for live ingestion data.</td></tr>";
 }
 
 function drawMarket(rows) {

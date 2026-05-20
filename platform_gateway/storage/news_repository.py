@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from typing import Any
 
 import aiomysql
@@ -10,15 +11,17 @@ from models.schemas import LatestNewsItem
 
 
 class NewsRepository:
-    """Reads latest ingested news from scraper_engine MySQL storage when enabled."""
+    """Reads latest ingested news, with a local fallback for dashboard runs."""
 
     def __init__(self, settings: Settings) -> None:
         self.settings = settings
         self.logger = get_logger("news_repository")
+        self._local_items: list[LatestNewsItem] = []
+        self._local_id = 1
 
     async def status(self) -> str:
         if not self.settings.scraper_mysql_enabled:
-            return "disabled"
+            return "local-memory"
         try:
             conn = await aiomysql.connect(**self.settings.scraper_mysql_kwargs)
             conn.close()
@@ -29,7 +32,7 @@ class NewsRepository:
 
     async def latest(self, symbol: str | None = None, limit: int = 20) -> list[LatestNewsItem]:
         if not self.settings.scraper_mysql_enabled:
-            return []
+            return self._latest_local(symbol=symbol, limit=limit)
         conn = await aiomysql.connect(**self.settings.scraper_mysql_kwargs)
         try:
             query = """
@@ -61,3 +64,51 @@ class NewsRepository:
             ]
         finally:
             conn.close()
+
+    def record_dashboard_headlines(self, events: list[dict[str, Any]], sentiment_outputs: list[dict[str, Any]]) -> None:
+        """Stores dashboard-submitted headlines when scraper MySQL is not enabled."""
+        if self.settings.scraper_mysql_enabled:
+            return
+        sentiments_by_text = {str(item.get("text", "")): item for item in sentiment_outputs}
+        now = datetime.now(timezone.utc)
+        for event in events:
+            text = str(event.get("text", "")).strip()
+            if not text:
+                continue
+            sentiment = sentiments_by_text.get(text, {})
+            self._local_items.append(
+                LatestNewsItem(
+                    id=self._local_id,
+                    source=str(event.get("source") or "dashboard"),
+                    title=text,
+                    url="#",
+                    summary=None,
+                    published_at=event.get("timestamp") or now,
+                    scraped_at=now,
+                    sentiment=sentiment.get("sentiment"),
+                    sentiment_score=self._score_from_sentiment(sentiment),
+                    semantic_duplicate=False,
+                )
+            )
+            self._local_id += 1
+        self._local_items = self._local_items[-200:]
+
+    def _latest_local(self, symbol: str | None, limit: int) -> list[LatestNewsItem]:
+        if not symbol:
+            return list(reversed(self._local_items[-limit:]))
+        needle = symbol.upper()
+        rows = [item for item in self._local_items if needle in item.title.upper()]
+        return list(reversed(rows[-limit:]))
+
+    @staticmethod
+    def _score_from_sentiment(sentiment: dict[str, Any]) -> float | None:
+        label = str(sentiment.get("sentiment", "neutral")).lower()
+        confidence = sentiment.get("confidence")
+        if confidence is None:
+            return None
+        value = float(confidence)
+        if label == "bearish":
+            return -value
+        if label == "bullish":
+            return value
+        return 0.0

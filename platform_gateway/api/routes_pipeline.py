@@ -44,6 +44,10 @@ async def _run_pipeline(payload: UnifiedPipelineRequest, request: Request) -> Un
         sentiment_outputs = await service.adaptive_ai.finbert_batch(
             [item.model_dump(mode="json") for item in payload.sentiment_events]
         )
+        service.news.record_dashboard_headlines(
+            [item.model_dump(mode="json") for item in payload.sentiment_events],
+            sentiment_outputs,
+        )
         enriched_sentiments = _sentiments_for_services(payload, sentiment_outputs)
         adaptive_payload["sentiment_events"] = enriched_sentiments
         feature_vector = await service.adaptive_ai.feature_vector(adaptive_payload)
