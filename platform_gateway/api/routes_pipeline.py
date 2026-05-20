@@ -110,6 +110,7 @@ async def _run_pipeline(payload: UnifiedPipelineRequest, request: Request) -> Un
     )
     await service.orchestrator.finalize(correlation_id, response)
     service.latest_signals[payload.symbol.upper()] = response
+    await service.pipeline_repository.save_final_signal(correlation_id, response)
     return response
 
 
@@ -128,24 +129,28 @@ async def api_overview(request: Request) -> dict[str, object]:
 async def symbol_snapshot(symbol: str, request: Request) -> dict[str, object]:
     news = await request.app.state.service.news.latest(symbol=symbol, limit=10)
     latest = request.app.state.service.latest_signals.get(symbol.upper())
+    latest = latest or request.app.state.service.pipeline_repository.get_latest_signal(symbol)
     return {"symbol": symbol.upper(), "latest_news": news, "latest_signal": latest, "timestamp": utc_now()}
 
 
 @router.get("/api/symbol/{symbol}/signal")
 async def symbol_signal(symbol: str, request: Request) -> dict[str, object]:
     latest = request.app.state.service.latest_signals.get(symbol.upper())
+    latest = latest or request.app.state.service.pipeline_repository.get_latest_signal(symbol)
     return {"symbol": symbol.upper(), "signal": latest.trading_guidance if latest else None, "status": "ready" if latest else "no signal yet"}
 
 
 @router.get("/api/symbol/{symbol}/regime")
 async def symbol_regime(symbol: str, request: Request) -> dict[str, object]:
     latest = request.app.state.service.latest_signals.get(symbol.upper())
+    latest = latest or request.app.state.service.pipeline_repository.get_latest_signal(symbol)
     return {"symbol": symbol.upper(), "regime": latest.regime if latest else None}
 
 
 @router.get("/api/symbol/{symbol}/risk")
 async def symbol_risk(symbol: str, request: Request) -> dict[str, object]:
     latest = request.app.state.service.latest_signals.get(symbol.upper())
+    latest = latest or request.app.state.service.pipeline_repository.get_latest_signal(symbol)
     risk = None
     if latest:
         guidance = latest.trading_guidance.get("guidance", latest.trading_guidance)
@@ -157,6 +162,7 @@ async def symbol_risk(symbol: str, request: Request) -> dict[str, object]:
 async def symbol_sentiment(symbol: str, request: Request) -> dict[str, object]:
     news = await request.app.state.service.news.latest(symbol=symbol, limit=20)
     latest = request.app.state.service.latest_signals.get(symbol.upper())
+    latest = latest or request.app.state.service.pipeline_repository.get_latest_signal(symbol)
     return {"symbol": symbol.upper(), "latest_news_count": len(news), "latest_news": news, "sentiment": latest.sentiment_outputs if latest else []}
 
 

@@ -42,5 +42,6 @@ async def deep_health(request: Request) -> dict[str, object]:
 async def pipeline_status(correlation_id: str, request: Request) -> object:
     state = request.app.state.service.orchestrator.status(correlation_id)
     if state is None:
-        return {"correlation_id": correlation_id, "status": "unknown"}
+        stored = request.app.state.service.pipeline_repository.get_pipeline_run(correlation_id)
+        return stored or {"correlation_id": correlation_id, "status": "unknown"}
     return state

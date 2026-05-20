@@ -7,6 +7,7 @@ from features.anomaly_features import AnomalyFeatureBuilder
 from features.correlation_features import CorrelationFeatureBuilder
 from features.momentum_features import MomentumFeatureBuilder
 from features.options_features import OptionsFeatureBuilder
+from features.feature_quality import FeatureQualityValidator
 from features.regime_features import RegimeFeatureBuilder
 from features.sentiment_features import SentimentFeatureBuilder
 from features.volatility_features import VolatilityFeatureBuilder
@@ -24,6 +25,7 @@ class AdaptiveFeatureBuilder:
         self.correlation = CorrelationFeatureBuilder()
         self.regime = RegimeFeatureBuilder()
         self.anomaly = AnomalyFeatureBuilder()
+        self.quality = FeatureQualityValidator()
 
     def build_frame(self, request: FeatureBuildRequest) -> pd.DataFrame:
         frame = self._bars_to_frame(request.market_data)
@@ -43,6 +45,7 @@ class AdaptiveFeatureBuilder:
     def build_response(self, request: FeatureBuildRequest) -> FeatureBuildResponse:
         frame = self.build_frame(request)
         latest_timestamp = None if frame.empty else pd.to_datetime(frame.iloc[-1]["timestamp"]).to_pydatetime()
+        quality_report = self.quality.validate(request, frame)
         return FeatureBuildResponse(
             symbol=request.symbol.upper(),
             rows=len(frame.index),
@@ -52,6 +55,7 @@ class AdaptiveFeatureBuilder:
                 "Feature set includes volatility, momentum, rolling sentiment, options-chain pressure, "
                 "sector correlation, regime indicators, and anomaly scores."
             ),
+            quality_report=quality_report,
         )
 
     def latest_vector(self, request: FeatureBuildRequest, timeframe: str = "1m") -> FeatureVectorOutput:
@@ -59,6 +63,7 @@ class AdaptiveFeatureBuilder:
         if frame.empty:
             raise ValueError("Cannot build feature vector without OHLCV data")
         latest = frame.iloc[-1]
+        quality_report = self.quality.validate(request, frame)
         return FeatureVectorOutput(
             symbol=request.symbol.upper(),
             timestamp=pd.to_datetime(latest["timestamp"]).to_pydatetime(),
@@ -82,6 +87,7 @@ class AdaptiveFeatureBuilder:
                 "iv_spike": self._optional_float(latest.get("iv_spike")),
                 "oi_imbalance": self._optional_float(latest.get("oi_imbalance")),
             },
+            quality_report=quality_report,
         )
 
     @staticmethod

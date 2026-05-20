@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+from datetime import datetime, timezone
+
 from config import Settings
-from models.enums import RiskLevel, TradingSignal
+from models.enums import ConfidenceLabel, RiskLevel, TradingSignal
 from models.schemas import EnsembleOutput, FinalTradingGuidance, RiskOutput
 from risk.drawdown_control import DrawdownControl
 from risk.position_sizing import PositionSizer
@@ -47,7 +49,7 @@ class RiskEngine:
             return FinalTradingGuidance(ensemble=ensemble, risk=risk, final_action=TradingSignal.HOLD, final_explanation="Risk engine moved action to HOLD because no market data is available.")
         latest = context.features.iloc[-1]
         entry = float(latest["close"])
-        atr = float(latest.get("atr_14", entry * 0.02))
+        atr = float(latest.get("atr_14", 0.0))
         proposed_action = ensemble.suggested_action
         action_for_risk = proposed_action if proposed_action != TradingSignal.HOLD else TradingSignal.BUY
         stop = self.stop_loss.calculate(entry_price=entry, atr=atr, action=action_for_risk)
@@ -86,6 +88,7 @@ class RiskEngine:
             max_drawdown_limit=self.settings.max_drawdown_limit,
             risk_level=risk_level,
             reason=self._risk_reason(proposed_action, final_action, risk_level, rr, context),
+            override_applied=final_action != proposed_action,
         )
         final_explanation = self._final_explanation(ensemble, risk, final_action)
         return FinalTradingGuidance(ensemble=ensemble, risk=risk, final_action=final_action, final_explanation=final_explanation)
@@ -104,9 +107,24 @@ class RiskEngine:
     def _override_action(self, action: TradingSignal, risk_level: RiskLevel, risk_reward_ratio: float, context: StrategyContext, ensemble: EnsembleOutput) -> TradingSignal:
         if action == TradingSignal.HOLD:
             return TradingSignal.HOLD
+        latest = context.features.iloc[-1]
+        if self._is_stale(latest):
+            return TradingSignal.HOLD
+        if float(latest.get("volume", 0.0) or 0.0) <= 0:
+            return TradingSignal.HOLD
+        if float(latest.get("atr_14", 0.0) or 0.0) <= 0:
+            return TradingSignal.HOLD
         if risk_level == RiskLevel.EXTREME:
             return TradingSignal.AVOID
-        if ensemble.confidence.value in {"LOW"}:
+        if ensemble.confidence in {ConfidenceLabel.LOW}:
+            return TradingSignal.HOLD
+        if risk_reward_ratio < 1.5:
+            return TradingSignal.HOLD
+        if max(ensemble.bullish_probability, ensemble.bearish_probability) < 0.62:
+            return TradingSignal.HOLD
+        if self._strategy_agreement(context, ensemble) < 2:
+            return TradingSignal.HOLD
+        if self._sentiment_only_signal(ensemble):
             return TradingSignal.HOLD
         panic_return = float(context.features["close"].pct_change(5).iloc[-1]) if len(context.features.index) >= 6 else 0.0
         if risk_level == RiskLevel.HIGH and (risk_reward_ratio < 1.5 or panic_return <= self.settings.panic_drawdown_pct):
@@ -115,9 +133,41 @@ class RiskEngine:
 
     def _risk_reason(self, proposed: TradingSignal, final: TradingSignal, risk_level: RiskLevel, rr: float, context: StrategyContext) -> str:
         if final != proposed:
-            return f"Risk engine overrode {proposed.value} to {final.value}; risk level is {risk_level.value} and risk/reward is {rr:.2f}."
+            details = []
+            latest = context.features.iloc[-1] if not context.features.empty else {}
+            if self._is_stale(latest):
+                details.append("latest candle is stale")
+            if float(latest.get("volume", 0.0) or 0.0) <= 0:
+                details.append("latest candle volume is zero")
+            if float(latest.get("atr_14", 0.0) or 0.0) <= 0:
+                details.append("ATR is unavailable")
+            if rr < 1.5:
+                details.append("risk/reward is below 1.5")
+            reason = "; ".join(details) if details else f"risk level is {risk_level.value}"
+            return f"Risk engine overrode {proposed.value} to {final.value}; {reason}; risk/reward is {rr:.2f}."
         atr_pct = float(context.features.iloc[-1].get("atr_pct", 0.0))
         return f"Risk engine approved {final.value}; risk level is {risk_level.value}, ATR percentage is {atr_pct:.2%}, and risk/reward is {rr:.2f}."
+
+    @staticmethod
+    def _is_stale(latest: object) -> bool:
+        try:
+            timestamp = latest.get("timestamp")  # type: ignore[attr-defined]
+            ts = timestamp if isinstance(timestamp, datetime) else datetime.fromisoformat(str(timestamp).replace("Z", "+00:00"))
+            if ts.tzinfo is None:
+                ts = ts.replace(tzinfo=timezone.utc)
+            return (datetime.now(timezone.utc) - ts.astimezone(timezone.utc)).total_seconds() > 60 * 60 * 24 * 7
+        except Exception:
+            return False
+
+    @staticmethod
+    def _strategy_agreement(context: StrategyContext, ensemble: EnsembleOutput) -> int:
+        action = ensemble.suggested_action
+        return sum(1 for item in ensemble.strategy_breakdown if item.signal == action and item.strategy_name != "FinBERT Sentiment")
+
+    @staticmethod
+    def _sentiment_only_signal(ensemble: EnsembleOutput) -> bool:
+        directional = [item for item in ensemble.strategy_breakdown if item.signal == ensemble.suggested_action]
+        return bool(directional) and all(item.strategy_name == "FinBERT Sentiment" for item in directional)
 
     @staticmethod
     def _final_explanation(ensemble: EnsembleOutput, risk: RiskOutput, final_action: TradingSignal) -> str:

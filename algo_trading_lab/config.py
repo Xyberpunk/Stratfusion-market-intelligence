@@ -30,7 +30,7 @@ class Settings(BaseModel):
 
     default_capital: float = Field(default_factory=lambda: float(os.getenv("DEFAULT_CAPITAL", "1000000")))
     default_risk_per_trade: float = Field(default_factory=lambda: float(os.getenv("DEFAULT_RISK_PER_TRADE", "0.01")))
-    max_strategy_weight: float = Field(default_factory=lambda: float(os.getenv("MAX_STRATEGY_WEIGHT", "0.35")))
+    max_strategy_weight: float = Field(default_factory=lambda: float(os.getenv("MAX_STRATEGY_WEIGHT", "0.45")))
     min_ensemble_confidence: float = Field(default_factory=lambda: float(os.getenv("MIN_ENSEMBLE_CONFIDENCE", "0.55")))
     max_drawdown_limit: float = Field(default_factory=lambda: float(os.getenv("MAX_DRAWDOWN_LIMIT", "0.15")))
     high_volatility_atr_pct: float = Field(default_factory=lambda: float(os.getenv("HIGH_VOLATILITY_ATR_PCT", "0.03")))

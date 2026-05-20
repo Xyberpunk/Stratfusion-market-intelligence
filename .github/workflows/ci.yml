@@ -1,0 +1,25 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install core test dependencies
+        run: |
+          python -m pip install --upgrade pip "setuptools<82" wheel
+          python -m pip install -r platform_gateway/requirements.txt
+          python -m pip install -r scraper_engine/requirements.txt
+          python -m pip install -r adaptive_ai_layer/requirements.txt
+          python -m pip install -r algo_trading_lab/requirements.txt
+      - name: Compile
+        run: python scripts/check_compile.py
+      - name: Tests
+        run: python scripts/run_unit_tests.py

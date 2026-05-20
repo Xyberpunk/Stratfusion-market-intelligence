@@ -82,7 +82,7 @@ class AlgoTradingLabService:
             signals=signals,
             regime=regime,
             custom_weights=request.custom_weights,
-            accuracy=self.performance_store.all(),
+            accuracy=self.performance_store.by_symbol_and_regime(request.symbol, regime.regime.value),
             risk_level=risk_level,
         )
         guidance = self.risk_engine.evaluate(

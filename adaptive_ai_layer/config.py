@@ -36,6 +36,12 @@ class Settings(BaseModel):
 
     regime_confidence_floor: float = Field(default_factory=lambda: float(os.getenv("REGIME_CONFIDENCE_FLOOR", "0.35")))
     high_volatility_percentile: float = Field(default_factory=lambda: float(os.getenv("HIGH_VOLATILITY_PERCENTILE", "0.8")))
+    regime_adx_trending: float = Field(default_factory=lambda: float(os.getenv("REGIME_ADX_TRENDING", "25")))
+    regime_adx_sideways: float = Field(default_factory=lambda: float(os.getenv("REGIME_ADX_SIDEWAYS", "18")))
+    regime_atr_high_vol_percentile: float = Field(default_factory=lambda: float(os.getenv("REGIME_ATR_HIGH_VOL_PERCENTILE", "0.85")))
+    regime_realized_vol_high: float = Field(default_factory=lambda: float(os.getenv("REGIME_REALIZED_VOL_HIGH", "0.035")))
+    regime_bollinger_compression_threshold: float = Field(default_factory=lambda: float(os.getenv("REGIME_BOLLINGER_COMPRESSION_THRESHOLD", "0.04")))
+    regime_ema_slope_trend_threshold: float = Field(default_factory=lambda: float(os.getenv("REGIME_EMA_SLOPE_TREND_THRESHOLD", "0.001")))
     panic_return_threshold: float = Field(default_factory=lambda: float(os.getenv("PANIC_RETURN_THRESHOLD", "-0.04")))
     low_liquidity_volume_ratio: float = Field(default_factory=lambda: float(os.getenv("LOW_LIQUIDITY_VOLUME_RATIO", "0.45")))
     max_strategy_weight: float = Field(default_factory=lambda: float(os.getenv("MAX_STRATEGY_WEIGHT", "0.35")))

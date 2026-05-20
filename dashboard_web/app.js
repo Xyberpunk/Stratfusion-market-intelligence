@@ -215,6 +215,10 @@ function renderPipeline(result) {
   els.targetPrice.textContent = number(risk.target);
   els.riskReward.textContent = number(risk.risk_reward_ratio);
   els.explanation.textContent = guidance?.final_explanation || result.explanation;
+  const quality = result.feature_vector?.quality_report;
+  if (quality) {
+    els.explanation.textContent += ` Feature quality: ${percent(quality.quality_score)}${quality.warnings?.length ? ` (${quality.warnings.slice(0, 2).join("; ")})` : ""}.`;
+  }
   renderWeights(result.weighting?.weights || {});
   renderStrategies(ensemble.strategy_breakdown || []);
   renderNews(result.latest_news || []);

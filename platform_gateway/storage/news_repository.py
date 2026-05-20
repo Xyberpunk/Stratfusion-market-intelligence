@@ -112,7 +112,7 @@ class NewsRepository:
             return list(reversed(self._local_items[-limit:]))
         needle = symbol.upper()
         rows = [item for item in self._local_items if needle in item.title.upper()]
-        return list(reversed(rows[-limit:]))
+        return list(reversed((rows or self._local_items)[-limit:]))
 
     async def _latest_live(self, symbol: str | None, limit: int) -> list[LatestNewsItem]:
         if self._live_cache_at and (datetime.now(timezone.utc) - self._live_cache_at).total_seconds() < 300:

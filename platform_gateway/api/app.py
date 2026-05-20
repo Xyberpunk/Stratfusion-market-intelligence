@@ -11,6 +11,7 @@ from models.schemas import UnifiedPipelineResponse
 from orchestrator.signal_orchestrator import SignalOrchestrator
 from shared.data.market_data_service import MarketDataService
 from storage.news_repository import NewsRepository
+from storage.pipeline_repository import PipelineRepository
 
 
 class PlatformGatewayService:
@@ -22,6 +23,7 @@ class PlatformGatewayService:
         self.algo_lab = AlgoLabClient(settings.algo_lab_url, settings.request_timeout_seconds)
         self.news = NewsRepository(settings)
         self.market_data = MarketDataService()
+        self.pipeline_repository = PipelineRepository(settings)
         self.latest_signals: dict[str, UnifiedPipelineResponse] = {}
         self.orchestrator = SignalOrchestrator(
             kafka_enabled=settings.enable_kafka,
@@ -29,10 +31,12 @@ class PlatformGatewayService:
         )
 
     async def start(self) -> None:
+        await self.pipeline_repository.start()
         await self.orchestrator.start()
 
     async def stop(self) -> None:
         await self.orchestrator.stop()
+        await self.pipeline_repository.close()
 
 
 def create_app() -> FastAPI:

@@ -18,6 +18,7 @@ class FinalExplanationEngine:
         sentiment_score: float | None = None,
         options_summary: dict[str, float | None] | None = None,
         regime_explanation: str | None = None,
+        feature_quality_warnings: list[str] | None = None,
     ) -> str:
         counts = Counter(signal.signal for signal in strategy_signals)
         bullish = [signal.strategy_name for signal in strategy_signals if signal.signal == TradingSignal.BUY]
@@ -47,5 +48,9 @@ class FinalExplanationEngine:
             pcr = options_summary.get("pcr")
             iv = options_summary.get("iv")
             parts.append(f"Options context includes PCR {pcr if pcr is not None else 'unavailable'} and IV {iv if iv is not None else 'unavailable'}.")
+        else:
+            parts.append("Options context is unavailable, so options confirmation did not contribute.")
+        if feature_quality_warnings:
+            parts.append(f"Feature quality warnings: {'; '.join(feature_quality_warnings[:3])}.")
         parts.append(f"Risk engine final action is {risk.final_action}: {risk.reason}")
         return " ".join(parts)

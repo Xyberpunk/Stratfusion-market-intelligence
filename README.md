@@ -112,6 +112,50 @@ Run the local E2E test:
 python -m pytest platform_gateway/tests/test_gateway_e2e_pipeline.py
 ```
 
+## Stabilized Local Pipeline
+
+This update moves the repository from a working scaffold toward a verified local intelligence pipeline.
+
+What is implemented:
+
+- Repo-wide compile, test, smoke, and local E2E scripts under `scripts/`, plus a root `Makefile`.
+- GitHub Actions compile/test workflow in `.github/workflows/ci.yml`.
+- Real local E2E test at `tests/test_real_local_pipeline.py` using actual in-process sentiment, feature builder, regime detector, strategy runner, ensemble, risk, and explanation objects.
+- `shared/data/candle_aggregator.py` converts NSEPython quote snapshots into rolling `1m`, `5m`, and `15m` candles with duplicate prevention.
+- `shared/data/candle_store.py` provides local candle persistence when durable storage is disabled.
+- Adaptive feature quality reports now flag stale data, insufficient history, missing sentiment/options, zero volume, ATR issues, realized volatility issues, and NaN-heavy output.
+- Regime detection remains intentionally simple: `TRENDING`, `SIDEWAYS`, and `HIGH_VOLATILITY`, with configurable thresholds and feature-quality confidence adjustment.
+- Risk engine is stricter: stale candles, zero volume, missing ATR, weak probabilities, weak strategy agreement, low confidence, poor risk/reward, and sentiment-only signals can downgrade to `HOLD`; extreme risk can become `AVOID`.
+- Strategy performance memory now feeds weighting by symbol and regime when enough samples exist, capped so no strategy dominates.
+- Platform Gateway has optional pipeline persistence with in-memory fallback and MySQL-ready tables for `pipeline_runs` and `final_signals`.
+
+Run mechanical checks:
+
+```bash
+make compile
+make test
+make smoke
+make e2e
+```
+
+Direct script equivalents:
+
+```bash
+python scripts/check_compile.py
+python scripts/run_unit_tests.py
+python scripts/smoke_services.py
+python scripts/run_e2e_local.py
+```
+
+Current limitations:
+
+- Local synchronous E2E is the stability target before Kafka E2E.
+- NSEPython live availability varies by market hours and upstream NSE behavior.
+- Candle aggregation quality depends on polling frequency; one quote is a heartbeat, not a full historical candle feed.
+- Strategy memory needs real recorded outcomes before it becomes valuable.
+- Regime detection is intentionally simple and explainable.
+- No reinforcement learning, broker execution, LSTM, or GPT trading decisions are used.
+
 ### `scraper_engine/`
 
 Indian stock-market news ingestion and semantic intelligence engine.

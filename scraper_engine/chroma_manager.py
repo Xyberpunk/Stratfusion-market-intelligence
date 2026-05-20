@@ -73,7 +73,7 @@ class ChromaManager:
                     "metadata": metadatas[idx] if idx < len(metadatas) else {},
                     "document": documents[idx] if idx < len(documents) else "",
                     "distance": distance,
-                    "similarity": max(0.0, min(1.0, 1.0 - distance)),
+                    "similarity": round(max(0.0, min(1.0, 1.0 - distance)), 6),
                 }
             )
         return rows

@@ -65,7 +65,7 @@ class WeightManager:
         adjusted = {}
         for name, weight in weights.items():
             item = accuracy_by_name.get(name)
-            multiplier = 1.0 if item is None or item.sample_size < 10 else 0.75 + item.accuracy
+            multiplier = 1.0 if item is None or item.sample_size < 10 else max(0.6, min(1.35, 0.75 + item.accuracy))
             adjusted[name] = weight * multiplier
         return self._normalize_and_cap(adjusted)
 
@@ -84,9 +84,33 @@ class WeightManager:
             positive = {name: equal for name in positive}
         else:
             positive = {name: value / total for name, value in positive.items()}
-        capped = {name: min(value, self.settings.max_strategy_weight) for name, value in positive.items()}
-        capped_total = sum(capped.values())
-        if capped_total <= 0:
-            equal = 1.0 / len(capped)
-            return {name: equal for name in capped}
-        return {name: value / capped_total for name, value in capped.items()}
+        return self._cap_with_floor(positive)
+
+    def _cap_with_floor(self, weights: dict[str, float]) -> dict[str, float]:
+        floor = 0.05 if len(weights) * 0.05 < 1.0 else 0.0
+        cap = self.settings.max_strategy_weight
+        bounded = {name: min(max(value, floor), cap) for name, value in weights.items()}
+        for _ in range(8):
+            total = sum(bounded.values())
+            if total <= 0:
+                equal = 1.0 / len(bounded)
+                return {name: equal for name in bounded}
+            bounded = {name: value / total for name, value in bounded.items()}
+            overflow = {name: value for name, value in bounded.items() if value > cap}
+            under = {name: value for name, value in bounded.items() if value <= cap}
+            if not overflow:
+                return {name: max(value, floor) for name, value in bounded.items()}
+            fixed_total = len(overflow) * cap
+            remaining = max(0.0, 1.0 - fixed_total)
+            under_total = sum(under.values()) or 1.0
+            bounded = {name: cap for name in overflow}
+            bounded.update({name: max(floor, value / under_total * remaining) for name, value in under.items()})
+        total = sum(bounded.values()) or 1.0
+        normalized = {name: min(value / total, cap) for name, value in bounded.items()}
+        remainder = 1.0 - sum(normalized.values())
+        receivers = [name for name, value in normalized.items() if value < cap]
+        if receivers and remainder > 0:
+            add = remainder / len(receivers)
+            for name in receivers:
+                normalized[name] = min(cap, normalized[name] + add)
+        return normalized

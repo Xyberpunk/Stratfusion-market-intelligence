@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from types import SimpleNamespace
+from datetime import datetime, timedelta, timezone
 
 import pytest
 
@@ -42,12 +43,21 @@ class FakeNews:
     async def latest(self, symbol=None, limit=10):
         return []
 
+    def record_dashboard_headlines(self, events, sentiment_outputs):
+        return None
+
+
+class FakePipelineRepository:
+    async def save_final_signal(self, correlation_id, response):
+        return None
+
 
 @pytest.mark.asyncio
 async def test_gateway_e2e_pipeline_response() -> None:
+    start = datetime(2026, 5, 1, 9, 15, tzinfo=timezone.utc)
     bars = [
-        MarketBar(symbol="INFY", timestamp=f"2026-05-{day:02d}T09:15:00Z", open=100 + day, high=102 + day, low=99 + day, close=101 + day, volume=100000 + day)
-        for day in range(1, 35)
+        MarketBar(symbol="INFY", timestamp=start + timedelta(days=day), open=100 + day, high=102 + day, low=99 + day, close=101 + day, volume=100000 + day)
+        for day in range(34)
     ]
     payload = UnifiedPipelineRequest(
         symbol="INFY",
@@ -55,7 +65,14 @@ async def test_gateway_e2e_pipeline_response() -> None:
         sentiment_events=[NewsSentimentEvent(symbol="INFY", text="Infosys raises guidance after strong revenue growth")],
         options_chain=[OptionsChainSnapshot(symbol="INFY", timestamp="2026-05-20T09:20:00Z", pcr=1.2, iv=22, call_oi_change=100, put_oi_change=150)],
     )
-    service = SimpleNamespace(adaptive_ai=FakeAdaptiveAI(), algo_lab=FakeAlgoLab(), news=FakeNews(), orchestrator=SignalOrchestrator(kafka_enabled=False), latest_signals={})
+    service = SimpleNamespace(
+        adaptive_ai=FakeAdaptiveAI(),
+        algo_lab=FakeAlgoLab(),
+        news=FakeNews(),
+        orchestrator=SignalOrchestrator(kafka_enabled=False),
+        latest_signals={},
+        pipeline_repository=FakePipelineRepository(),
+    )
     request = SimpleNamespace(app=SimpleNamespace(state=SimpleNamespace(service=service)))
     response = await _run_pipeline(payload, request)
     assert response.regime["regime"] == "TRENDING"

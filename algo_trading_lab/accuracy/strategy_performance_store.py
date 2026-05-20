@@ -19,3 +19,20 @@ class StrategyPerformanceStore:
 
     def all(self) -> list[AccuracyOutput]:
         return [item for items in self._items.values() for item in items]
+
+    def get_strategy_performance_by_regime(self, strategy_name: str, regime: str) -> list[AccuracyOutput]:
+        return [item for item in self.get(strategy_name) if item.regime.upper() == regime.upper()]
+
+    def get_strategy_performance_by_symbol(self, strategy_name: str, symbol: str) -> list[AccuracyOutput]:
+        return [item for item in self.get(strategy_name) if item.symbol.upper() == symbol.upper()]
+
+    def get_recent_strategy_accuracy(self, strategy_name: str) -> float:
+        rows = self.get(strategy_name)
+        return rows[-1].accuracy if rows else 0.0
+
+    def by_symbol_and_regime(self, symbol: str, regime: str) -> list[AccuracyOutput]:
+        return [
+            item
+            for item in self.all()
+            if item.symbol.upper() == symbol.upper() and item.regime.upper() == regime.upper()
+        ]

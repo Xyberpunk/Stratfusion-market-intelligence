@@ -114,6 +114,7 @@ class RiskOutput(BaseModel):
     max_drawdown_limit: float
     risk_level: RiskLevel
     reason: str = ""
+    override_applied: bool = False
 
 
 class FinalTradingGuidance(BaseModel):

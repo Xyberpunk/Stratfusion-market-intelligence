@@ -73,6 +73,7 @@ class FeatureBuildResponse(BaseModel):
     latest_timestamp: datetime | None
     features: list[dict[str, Any]]
     explanation: str
+    quality_report: "FeatureQualityReport | None" = None
 
 
 class FeatureVectorOutput(BaseModel):
@@ -80,6 +81,18 @@ class FeatureVectorOutput(BaseModel):
     timestamp: datetime
     timeframe: str = "1m"
     features: dict[str, float | int | None]
+    quality_report: "FeatureQualityReport | None" = None
+
+
+class FeatureQualityReport(BaseModel):
+    symbol: str
+    timestamp: datetime
+    rows: int
+    missing_features: list[str] = Field(default_factory=list)
+    stale_inputs: bool = False
+    enough_history: bool = True
+    quality_score: float = Field(ge=0.0, le=1.0)
+    warnings: list[str] = Field(default_factory=list)
 
 
 class RegimeDetectionRequest(FeatureBuildRequest):
@@ -93,6 +106,8 @@ class RegimeOutput(BaseModel):
     confidence: float = Field(ge=0.0, le=1.0)
     features: dict[str, Any]
     explanation: str
+    features_used: dict[str, Any] = Field(default_factory=dict)
+    quality_adjusted: bool = False
 
 
 class StrategyPerformanceRecord(BaseModel):

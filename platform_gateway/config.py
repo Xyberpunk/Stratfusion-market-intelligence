@@ -35,6 +35,8 @@ class Settings(BaseModel):
     scraper_mysql_user: str = Field(default_factory=lambda: os.getenv("SCRAPER_MYSQL_USER", "stock_user"))
     scraper_mysql_password: str = Field(default_factory=lambda: os.getenv("SCRAPER_MYSQL_PASSWORD", ""))
     scraper_mysql_database: str = Field(default_factory=lambda: os.getenv("SCRAPER_MYSQL_DATABASE", "stock_news"))
+    pipeline_mysql_enabled: bool = Field(default_factory=lambda: _bool_env("PIPELINE_MYSQL_ENABLED", False))
+    pipeline_mysql_database: str = Field(default_factory=lambda: os.getenv("PIPELINE_MYSQL_DATABASE", "stratfusion_pipeline"))
 
     @property
     def scraper_mysql_kwargs(self) -> dict[str, object]:
@@ -47,6 +49,12 @@ class Settings(BaseModel):
             "charset": "utf8mb4",
             "autocommit": True,
         }
+
+    @property
+    def pipeline_mysql_kwargs(self) -> dict[str, object]:
+        kwargs = self.scraper_mysql_kwargs.copy()
+        kwargs["db"] = self.pipeline_mysql_database
+        return kwargs
 
 
 @lru_cache(maxsize=1)
